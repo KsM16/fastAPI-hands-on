@@ -6,6 +6,11 @@ from app.schema import Post, PostUpdate
 from app.database import get_db
 from app import models
 
+from app.oauth2 import get_current_user  
+
+
+
+
 router = APIRouter(
     prefix="/posts",
     tags=["Posts"]
@@ -20,12 +25,19 @@ async def get_posts(db: Session = Depends(get_db)):
 
 
 @router.post("/trial", status_code=status.HTTP_201_CREATED, response_model=Post)
-async def create_post(new_post: Post, db: Session = Depends(get_db)):
+async def create_post(
+    new_post: Post, 
+    db: Session = Depends(get_db), 
+    current_user: models.User = Depends(get_current_user)   
+):
+    # This route is now locked down. 'current_user' contains the logged-in user record!
+    print(f"Post being created by user ID: {current_user.id}")
+    
     db_post = models.Post(**new_post.model_dump())
     db.add(db_post)     
     db.commit()          
     db.refresh(db_post)   
-    return db_post 
+    return db_post  
 
 
 @router.get("/{id}", status_code=status.HTTP_200_OK, response_model=Post)
@@ -81,3 +93,8 @@ async def update_post(id: int, updated_post: PostUpdate, db: Session = Depends(g
         )
     db.commit()
     return updated_record
+
+
+
+
+
