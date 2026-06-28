@@ -1,15 +1,19 @@
 from sqlalchemy import create_engine
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from app.config import settings  # Import your settings object
 
-# 1. Database URL configuration (Using SQLite for local development)
-SQLALCHEMY_DATABASE_URL = "postgresql://postgres:1234@localhost/fastAPI"
+# Dynamically build the connection string using environment values
+SQLALCHEMY_DATABASE_URL = (
+    f"postgresql://{settings.db_user}:{settings.db_password}"
+    f"@{settings.db_host}/{settings.db_name}"
+)
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
-# 4. Create the modern 2.0 declarative base class for your models
+# Create the modern 2.0 declarative base class for your models
 class Base(DeclarativeBase):
     pass
 
@@ -18,4 +22,4 @@ def get_db():
     try:
         yield db  # Provides the active session connection context to the route
     finally:
-        db.close() 
+        db.close()

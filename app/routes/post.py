@@ -30,14 +30,15 @@ async def create_post(
     db: Session = Depends(get_db), 
     current_user: models.User = Depends(get_current_user)   
 ):
-    # This route is now locked down. 'current_user' contains the logged-in user record!
     print(f"Post being created by user ID: {current_user.id}")
     
-    db_post = models.Post(**new_post.model_dump())
+    # Unpack the schema data and explicitly assign the owner_id
+    db_post = models.Post(**new_post.model_dump(), owner_id=current_user.id)
+    
     db.add(db_post)     
     db.commit()          
     db.refresh(db_post)   
-    return db_post  
+    return db_post
 
 
 @router.get("/{id}", status_code=status.HTTP_200_OK, response_model=Post)
@@ -54,21 +55,40 @@ async def get_post(id: int, db: Session = Depends(get_db)):
 
 
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_post(id: int, db: Session = Depends(get_db)):
-    statement = delete(models.Post).where(models.Post.id == id)
-    result = db.execute(statement)
+async def delete_post(
+    id: int, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user) # Add authentication dependency
+):
+    # First, fetch the post to check ownership
+    statement = select(models.Post).where(models.Post.id == id)
+    post = db.scalars(statement).first()
     
-    if result.rowcount == 0:
+    if not post:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Post with ID {id} does not exist"
         )
+        
+    # Check if the logged-in user owns the post
+    if post.owner_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to perform requested action"
+        )
+
+    db.delete(post)
     db.commit()
     return None
 
 
 @router.patch("/{id}", status_code=status.HTTP_200_OK, response_model=Post)
-async def update_post(id: int, updated_post: PostUpdate, db: Session = Depends(get_db)):
+async def update_post(
+    id: int, 
+    updated_post: PostUpdate, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user) # Add authentication dependency
+):
     update_data = updated_post.model_dump(exclude_unset=True)
     
     if not update_data:
@@ -77,24 +97,35 @@ async def update_post(id: int, updated_post: PostUpdate, db: Session = Depends(g
             detail="At least one field must be provided for update"
         )
 
-    statement = (
+    # First, fetch the post to check ownership
+    select_statement = select(models.Post).where(models.Post.id == id)
+    post = db.scalars(select_statement).first()
+    
+    if not post:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Post with ID {id} does not exist"
+        )
+        
+    # Check if the logged-in user owns the post
+    if post.owner_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to perform requested action"
+        )
+
+    # Perform the update
+    update_statement = (
         update(models.Post)
         .where(models.Post.id == id)
         .values(**update_data)
         .returning(models.Post)
     )
-    result = db.execute(statement)
+    result = db.execute(update_statement)
     updated_record = result.scalar_one_or_none()
     
-    if not updated_record:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Post with ID {id} does not exist"
-        )
     db.commit()
     return updated_record
-
-
 
 
 

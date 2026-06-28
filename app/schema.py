@@ -1,6 +1,7 @@
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, EmailStr
+from pydantic import Field, field_validator
 
 
 class Post(BaseModel):
@@ -21,6 +22,12 @@ class UserCreate(BaseModel):
 
     model_config = ConfigDict(from_attributes=True) 
 
+class UserOut(BaseModel):
+    id: int
+    email: EmailStr
+
+    model_config = ConfigDict(from_attributes=True)
+
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -33,3 +40,16 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     id: Optional[str] = None
+
+
+
+class Vote(BaseModel):
+    post_id: int
+    dir: int = Field(..., description="1 to upvote, 0 to remove vote")
+
+    @field_validator('dir')
+    @classmethod
+    def validate_dir(cls, v: int) -> int:
+        if v not in (0, 1):
+            raise ValueError("dir must be 0 or 1")
+        return v

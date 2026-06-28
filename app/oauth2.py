@@ -6,23 +6,21 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 from app.database import get_db
 from app import models
+from app.config import settings  
 
+# Use settings for token configuration 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl='login')
-
-SECRET_KEY = "ddfrf334r34r3r3d4d34f4g45g54g54g45g45g45g45gg45g4g45g24234234234234234234234234"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 def create_access_token(data: dict) -> str:
     """Generates a signed JWT access token for a user."""
     to_encode = data.copy()
     
-    # Calculate token expiration timestamp safely in UTC
-    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    # 2. Swap hardcoded expiration minutes with settings 
+    expire = datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_expire_minutes)
     to_encode.update({"exp": expire})
     
-    # Sign and encode the JWT payload block
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    # 3. Swap hardcoded secret and algorithm with settings 
+    encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
     return encoded_jwt
 
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
@@ -34,8 +32,8 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     )
     
     try:
-        # Decode the signature using your local configurations
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        # 4. Swap verification configs with settings [cite: 23]
+        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
         user_id: str = payload.get("user_id")
         
         if user_id is None:
@@ -44,7 +42,6 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     except jwt.InvalidTokenError:
         raise credentials_exception
         
-    # Query database to extract the full verified User row properties
     statement = select(models.User).where(models.User.id == int(user_id))
     user = db.scalars(statement).first()
     

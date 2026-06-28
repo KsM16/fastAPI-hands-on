@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
-from app.schema import UserCreate
+from app.schema import UserCreate, UserOut
 from app.utils import hash_password
 from app.database import get_db
 from app import models
@@ -13,9 +13,10 @@ router = APIRouter(
 )
 
 # Note: The route is now just "/", which combines with prefix to make "/users"
-@router.post("/", status_code=status.HTTP_201_CREATED, response_model=UserCreate)
+@router.post("/", status_code=status.HTTP_201_CREATED, response_model=UserOut)
 async def create_user(user: UserCreate, db: Session = Depends(get_db)):
 
+    
     user.password = hash_password(user.password)
     
     new_user = models.User(**user.model_dump())
