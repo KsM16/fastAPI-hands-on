@@ -8,23 +8,18 @@ from app.database import get_db
 from app import models
 from app.config import settings  
 
-# Use settings for token configuration 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl='login')
 
 def create_access_token(data: dict) -> str:
-    """Generates a signed JWT access token for a user."""
     to_encode = data.copy()
     
-    # 2. Swap hardcoded expiration minutes with settings 
     expire = datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_expire_minutes)
     to_encode.update({"exp": expire})
     
-    # 3. Swap hardcoded secret and algorithm with settings 
     encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
     return encoded_jwt
 
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    """FastAPI Dependency: Intercepts requests, validates JWT token, and returns the User object."""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -32,7 +27,6 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     )
     
     try:
-        # 4. Swap verification configs with settings [cite: 23]
         payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
         user_id: str = payload.get("user_id")
         
